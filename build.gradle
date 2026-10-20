@@ -1,0 +1,86 @@
+plugins {
+    // Non-remapping Loom plugin for unobfuscated Minecraft (26.1+).
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+sourceSets {
+    main {
+        // The Minecraft-independent core (also built and unit-tested on its own in core/)
+        // is compiled straight into this jar: one jar, no nested jars.
+        java.srcDir 'core/src/main/java'
+        resources.srcDir 'core/src/main/resources'
+    }
+    // In-game packet test (Fabric client game test). Not part of the released jar.
+    gametest {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+loom {
+    mods {
+        "noir" {
+            sourceSet sourceSets.main
+        }
+        "noir-gametest" {
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    runs {
+        // ./gradlew runClientGameTest : starts the client, creates a singleplayer world,
+        // runs every module for 200 ticks and fails on any non-vanilla packet budget.
+        clientGameTest {
+            client()
+            name = "Client Game Test"
+            source sourceSets.gametest
+            vmArg "-Dfabric.client.gametest"
+            runDir "build/run/clientGameTest"
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+    def version = project.version
+    inputs.property "version", version
+    filesMatching("fabric.mod.json") {
+        expand "version": version
+    }
+}
+
+processGametestResources {
+    def version = project.version
+    inputs.property "version", version
+    filesMatching("fabric.mod.json") {
+        expand "version": version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = 'UTF-8'
+    it.options.release = 25
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_noir" }
+    }
+}

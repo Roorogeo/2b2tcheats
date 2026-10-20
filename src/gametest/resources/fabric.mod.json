@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "noir-gametest",
+  "version": "${version}",
+  "name": "Noir Packet Tests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "dev.noir.gametest.PacketBudgetGameTest"
+    ]
+  },
+  "depends": {
+    "noir": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

@@ -1,0 +1,4 @@
+// Standalone build for the Minecraft-independent core. The root (Loom) project
+// compiles these same sources into the mod jar; this build exists so the core can
+// be compiled and unit-tested without a Minecraft toolchain.
+rootProject.name = 'noir-core'

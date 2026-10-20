@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "package": "dev.noir.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ClientBrandRetrieverMixin",
+    "ConnectionMixin",
+    "KeyboardHandlerMixin",
+    "LocalPlayerMixin",
+    "MinecraftMixin",
+    "MouseHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

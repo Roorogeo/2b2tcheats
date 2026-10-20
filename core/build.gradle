@@ -1,0 +1,47 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'dev.noir'
+version = '0.1.0'
+
+repositories {
+    // The Gradle plugin portal mirrors Maven Central and is reachable from restricted CI.
+    maven { url = 'https://plugins.gradle.org/m2/' }
+    mavenCentral()
+}
+
+dependencies {
+    // Minecraft ships Gson; the core uses it for config and the mod build gets it from the game.
+    implementation 'com.google.code.gson:gson:2.11.0'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs << '-Xlint:unchecked'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'true'
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+        showStandardStreams = false
+    }
+}
+
+// Renders the real ClickGUI / HUD code through a Java2D canvas into PNGs.
+tasks.register('renderGuiPreview', JavaExec) {
+    group = 'noir'
+    description = 'Renders ClickGUI and HUD previews to docs/screenshots'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.noir.preview.GuiPreview'
+    systemProperty 'java.awt.headless', 'true'
+    args file('../docs/screenshots').absolutePath
+}
