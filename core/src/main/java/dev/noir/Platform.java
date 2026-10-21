@@ -26,6 +26,8 @@ public interface Platform {
 
     void openHudEditor();
 
-    /** Local system toast (e.g. SusChunk alerts). */
-    default void toast(String title, String body) {}
+    /** Address of the current server ("singleplayer" in single player). Used for local logs/waypoints only. */
+    default String serverId() {
+        return "local";
+    }
 }

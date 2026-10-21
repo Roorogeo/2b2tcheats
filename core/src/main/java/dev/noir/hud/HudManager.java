@@ -69,6 +69,11 @@ public final class HudManager {
         }
     }
 
+    /** Local HUD toast (used for Base Hunting alerts). */
+    public void toast(String title, String body) {
+        toasts.push(title, body, true);
+    }
+
     public void onModuleToggle(Module m, boolean on) {
         arrayList.onToggle(m, on);
         toasts.onToggle(m, on);

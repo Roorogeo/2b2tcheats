@@ -49,6 +49,11 @@ public final class GuiPreview {
             s.frame();
             if (mode.rawValue() != DemoModules.CritMode.JUMP) throw new IllegalStateException("strict mode let Packet through");
         });
+        baseHunting(out.resolve("basehunting.png"));
+        clickGui(out.resolve("clickgui-suschunk.png"), s -> {
+            s.gui.ui().setExpanded(s.core.modules().find("KillAura"), false);
+            s.gui.ui().setExpanded(s.core.modules().find("SusChunk"), true);
+        });
         hud(out.resolve("hud.png"), false);
         hud(out.resolve("hud-editor.png"), true);
         System.out.println("Wrote previews to " + out.toAbsolutePath());
@@ -158,6 +163,88 @@ public final class GuiPreview {
             }
         }
         ImageIO.write(s.canvas.image(), "png", new File(file.toString()));
+    }
+
+    /**
+     * The real Base Hunting modules over ~300 fake chunks (a stash, a base, a portal, a trail of
+     * old chunks through new terrain, and Search finds), drawn through the WorldCanvas path.
+     */
+    private static void baseHunting(Path file) throws Exception {
+        FakePlatform platform = new FakePlatform(Files.createTempDirectory("noir-preview"));
+        NoirCore core = new NoirCore(platform, Runnable::run);
+        core.register(DemoModules.all().toArray(Module[]::new));
+        core.start();
+        java.util.Map<Long, dev.noir.testutil.FakeChunk> loaded = new java.util.HashMap<>();
+        core.baseHunt().setSource(new dev.noir.basehunt.ChunkSource() {
+            @Override public String dimension() { return "overworld"; }
+            @Override public java.util.List<dev.noir.basehunt.ChunkView> loaded() { return new java.util.ArrayList<>(loaded.values()); }
+            @Override public dev.noir.basehunt.ChunkView get(int x, int z) { return loaded.get(((long) x << 32) ^ (z & 0xFFFFFFFFL)); }
+        });
+        core.events().post(new dev.noir.event.Events.WorldChange(true));
+        for (String m : new String[] {"Waypoints", "SusChunk", "NewChunks", "Trails", "Search", "PortalESP", "StashFinder"}) {
+            core.modules().find(m).setEnabled(true);
+        }
+        core.modules().find("NewChunks").setting("renderheight").parse("63");
+        core.modules().find("Trails").setting("renderheight").parse("63.2");
+        core.modules().find("SusChunk").setting("renderheight").parse("63.4");
+        core.modules().find("Search").setting("tracers").parse("on");
+        core.modules().find("Search").setting("maxdistance").parse("400");
+
+        for (int cx = -9; cx <= 9; cx++) {
+            for (int cz = -2; cz <= 14; cz++) {
+                dev.noir.testutil.FakeChunk c = dev.noir.testutil.FakeChunk.overworld(cx, cz);
+                boolean trail = Math.abs(cx - (cz / 2 - 3)) <= 0 && cz >= 0;
+                if (trail) c.flowing(4, 62, 4);
+                if (cx == 4 && cz == 3) {
+                    c.fill(2, 63, 2, 13, 63, 2, "chest").fill(2, 63, 5, 9, 63, 5, "barrel");
+                    for (int i = 0; i < 20; i++) c.blockEntity("minecraft:chest");
+                }
+                if (cx == -5 && cz == 8) {
+                    c.fill(3, 63, 3, 8, 66, 3, "obsidian").set(5, 63, 7, "white_bed").set(6, 63, 7, "crafting_table")
+                        .set(7, 63, 7, "furnace").fill(2, 63, 10, 5, 63, 10, "chest");
+                    for (int i = 0; i < 6; i++) c.blockEntity("minecraft:chest");
+                }
+                if (cx == 2 && cz == 9) c.fill(5, 63, 6, 6, 65, 6, "nether_portal");
+                if ((cx * 7 + cz * 3) % 23 == 0) c.set(8, 40, 8, "spawner");
+                loaded.put(((long) cx << 32) ^ (cz & 0xFFFFFFFFL), c);
+                core.events().post(new dev.noir.event.Events.ChunkLoad(cx, cz, c, c));
+                if (!trail) {
+                    core.events().post(new dev.noir.event.Events.BlockChange("overworld", cx * 16 + 3, 62, cz * 16 + 3,
+                        "minecraft:air", "minecraft:water", true));
+                }
+            }
+        }
+        for (int i = 0; i < 45; i++) {
+            core.events().post(new dev.noir.event.Events.TickPost(i));
+            platform.clock.advance(50);
+        }
+
+        dev.noir.render.CameraInfo cam = new dev.noir.render.CameraInfo(8, 150, -70, 0, 38, 70, W, H);
+        Java2DCanvas canvas = new Java2DCanvas(W, H, 1f);
+        Graphics2D g = canvas.graphics();
+        g.setPaint(new GradientPaint(0, 0, new Color(0x5E7380), 0, H, new Color(0x9AA9A0)));
+        g.fillRect(0, 0, W, H);
+        Java2DWorldCanvas world = new Java2DWorldCanvas(cam);
+        for (int cx = -9; cx <= 9; cx++) {
+            for (int cz = -2; cz <= 14; cz++) {
+                double x0 = cx * 16, z0 = cz * 16;
+                int ground = ((cx + cz) & 1) == 0 ? 0xFF3E4A3A : 0xFF43503F;
+                world.quad(x0, 62.9, z0, x0 + 16, 62.9, z0, x0 + 16, 62.9, z0 + 16, x0, 62.9, z0 + 16, ground);
+            }
+        }
+        core.events().post(new dev.noir.event.Events.RenderWorld3D(world, 0));
+        world.paint(g);
+
+        FakeHudData data = new FakeHudData();
+        data.camera = cam;
+        data.hits = core.hud().counters();
+        data.x = 8;
+        data.y = 150;
+        data.z = -70;
+        core.hud().render(canvas, data);
+        core.events().post(new dev.noir.event.Events.RenderHud(canvas, 0, cam));
+        ImageIO.write(canvas.image(), "png", file.toFile());
+        core.shutdown();
     }
 
     /** A neutral stand-in for the game world behind the GUI. */

@@ -13,7 +13,8 @@ public final class FakeHudData implements HudData {
     public double x = 12_480.5, y = 64, z = -3_312.2;
     public String dimension = "overworld";
     public int totems = 6;
-    public final Map<String, Integer> hits = new LinkedHashMap<>();
+    public Map<String, Integer> hits = new LinkedHashMap<>();
+    public dev.noir.render.CameraInfo camera = dev.noir.render.CameraInfo.NONE;
     public List<ArmorPiece> armor = List.of(
         new ArmorPiece("helmet", "Netherite Helmet", 40, 407),
         new ArmorPiece("chestplate", "Netherite Chestplate", 120, 592),
@@ -30,4 +31,5 @@ public final class FakeHudData implements HudData {
     @Override public List<ArmorPiece> armor() { return armor; }
     @Override public int totems() { return totems; }
     @Override public Map<String, Integer> hitCounters() { return hits; }
+    @Override public dev.noir.render.CameraInfo camera() { return camera; }
 }

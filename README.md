@@ -9,8 +9,8 @@ Monochrome "Noir" UI; vanilla-shaped on the wire.
 
 | Stage | Contents | State |
 |---|---|---|
-| 1 | Core systems, PacketManager, ClickGUI, HUD, config, commands, packet tests | **Done.** Core compiled and tested (81 tests); Minecraft layer written, not yet compiled (see below) |
-| 2 | Base Hunting: SusChunk, NewChunks, Trails, Search, PortalESP, StashFinder, Waypoints | Not started |
+| 1 | Core systems, PacketManager, ClickGUI, HUD, config, commands, packet tests | **Done.** Core compiled and tested; Minecraft layer written, not yet compiled (see below) |
+| 2 | Base Hunting: SusChunk, NewChunks, Trails, Search, PortalESP, StashFinder, Waypoints | **Done.** Module logic, scanning, scoring and 3D shapes in the core (105 core tests in total); Minecraft adapters written, not yet compiled |
 | 3 | Combat, Movement, Render modules | Not started |
 
 **Build status.** The Minecraft-independent core (`core/`) builds and passes its tests.
@@ -85,6 +85,62 @@ Strict-mode indicator and toggle toasts. In the HUD editor: drag to move (elemen
 the nearest screen region on drop), right-click to toggle, scroll to scale, click for the
 element's settings (alignment, offsets, scale and per-element options).
 
+## Base Hunting
+
+![Base Hunting preview](docs/screenshots/basehunting.png)
+
+*Preview: the real modules over fake chunks, drawn through the same quad-based shape code the game uses.*
+
+All Base Hunting modules are **read-only**: they never request actions and send zero packets
+(enforced by the PacketManager and checked by the packet tests). They only read chunk and block
+data the server already sent.
+
+**Scanning.** When a chunk arrives, a background thread does one pass over it and caches the
+result per chunk: block counts per 16-block section, exposed vs. buried stone and ore, flowing
+liquids, block entity totals, and the positions of blocks any enabled module asked for. Rendering
+only reads that cache, so scanning never runs on the render thread. A chunk is rescanned when its
+blocks change. Scanning only runs while at least one Base Hunting module is enabled. SusChunk's
+Clear Cache drops everything and rescans.
+
+### How SusChunk scoring works
+
+Every scanned chunk gets a score. Each check below has its own toggle and weight, and only blocks
+between Min Y and Max Y count (block entities count the whole chunk). A chunk scoring at least
+**Score Threshold** (default 10) is highlighted, alerted once, and optionally logged and waypointed.
+Changing a weight or the threshold rescores from the cache without rescanning.
+
+| Check | Points | Defaults |
+|---|---|---|
+| Storage | `weight × (storage blocks − allowance)`; chests, trapped chests, barrels, shulkers, ender chests, hoppers, droppers, dispensers | weight 2, allowance 2 |
+| Player-placed blocks | `weight × min(count, cap)` for each listed block id: obsidian, beds, shulkers, ender chests, crafting tables, furnaces, anvils, signs, rails, glass, wool, ... (editable list) | weight 1, cap 16 |
+| Block entities | `weight × (block entities − allowance)` | weight 0.5, allowance 4 |
+| Missing ores | Ore share in stone exposed sideways to air (tunnel and cave walls) vs. buried stone. Strip-mined walls have almost none left. If exposed < factor × buried, up to `10 × weight` | weight 1, factor 0.35, needs 96 exposed stone |
+| Portals | `weight × max(1, portal blocks / 6)` | weight 5 |
+
+Display: a flat square at Render Height, or a column over the Y range. It can be colored by score
+(Color at the threshold, blending to High Color at 3× the threshold), with the usual
+fill/outline/tracer options.
+
+### The other modules
+
+- **NewChunks**: *liquid flow*: flowing-liquid updates arriving within the Detection Window after
+  a chunk loads mean it was just generated (new). A chunk that arrives with liquid already settled is
+  old. *Version*: overworld chunks with no deepslate/tuff below y 0 (pre-1.18), and nether chunks with
+  none of the 1.16 blocks (pre-1.16), are old. Each method can be toggled, with separate colors,
+  render height and opacity.
+- **Trails**: old chunks grouped into connected paths. A path counts when it's at least Min Trail
+  Length long, at most Max Trail Width wide (principal-axis extent), and mostly surrounded by new chunks.
+- **Search**: block ESP for a block list with a color per block, max distance, max render count and tracers.
+- **PortalESP**: nether portals, end portals and end gateways, one box per portal (connected blocks).
+- **StashFinder**: chunks with at least Storage Threshold storage blocks (editable list, Y range).
+- **Waypoints**: auto-created by the modules above (Auto Waypoint in each module's Alerts group).
+  Name format tokens are `{type} {x} {y} {z} {dim} {n}`. Nearby duplicates are merged. Each
+  waypoint gets a beam, plus an on-screen label with its distance. Stored per server in
+  `config/noir/waypoints/`.
+
+Alerts are local only: a chat line, a HUD toast, and/or a tab-separated line in
+`config/noir/logs/<module>.log` (time, server, dimension, x, y, z, details).
+
 ## Commands
 
 Commands use the `.` prefix (configurable). They are handled locally and never sent:
@@ -100,6 +156,7 @@ starts with the prefix.
 | `.config save [name]` / `load <name>` / `list` / `delete <name>` / `reset <module\|all>` / `current` | Profiles |
 | `.friend add\|remove <name>` / `.friend list\|clear` | Friends (combat modules skip them) |
 | `.hud` | Open the HUD editor |
+| `.waypoint add <name> <x> <y> <z>` / `remove <name>` / `list` / `clear` | Local waypoints (alias `.wp`) |
 
 Setting names ignore case, spaces and punctuation: `.set killaura attackdelay 4`.
 Block/entity lists accept `add <id> [#AARRGGBB]`, `remove <id>`, `clear`, or `id,id,...`.
@@ -181,10 +238,16 @@ core/src/main/java/dev/noir/          platform-independent, unit-tested
   command/           CommandManager and commands
   gui/               Canvas, RasterCanvas, rounded-rect rasterizer, Ui, ClickGui, panels, Theme
   hud/               HudManager, HudEditor, HUD elements
+  basehunt/          ChunkScanner, ScanService (off-thread cache), SusScorer, NewChunkTracker,
+                     TrailDetector, WaypointStore, FindLog
+  render/            WorldCanvas (quads), Shapes (boxes, outlines, tracers, beams), CameraInfo
+  module/basehunting SusChunk, NewChunks, Trails, Search, PortalESP, StashFinder, Waypoints
   util/              Colors, Keys, Animation, MathUtil
 src/main/java/dev/noir/               Minecraft 26.2 layer
   NoirClient (entrypoint), MinecraftPlatform
-  mixin/             Connection, LocalPlayer, Minecraft, KeyboardHandler, MouseHandler, ClientBrandRetriever
+  mixin/             Connection, LocalPlayer, Minecraft, KeyboardHandler, MouseHandler, LevelChunk, ClientBrandRetriever
+  basehunt/          McChunkView, McChunkSource
+  render/            McWorldCanvas (quads -> RenderTypes.debugFilledBox)
   network/           MinecraftPacketSink, PacketClassifier, TpsTracker
   gui/               McCanvas, InterFontAtlas, NoirScreen
   hud/               McHudData, HudEditorScreen

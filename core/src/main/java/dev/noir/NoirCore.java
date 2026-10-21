@@ -1,5 +1,6 @@
 package dev.noir;
 
+import dev.noir.basehunt.BaseHunt;
 import dev.noir.command.CommandManager;
 import dev.noir.config.ConfigManager;
 import dev.noir.config.Friends;
@@ -31,9 +32,15 @@ public final class NoirCore {
     private final CommandManager commands;
     private final ConfigManager config;
     private final ClickGui gui;
+    private final BaseHunt baseHunt;
     private boolean started;
 
     public NoirCore(Platform platform) {
+        this(platform, null);
+    }
+
+    /** @param scanExecutor where chunk scans run; null for a background thread (tests pass Runnable::run) */
+    public NoirCore(Platform platform, java.util.concurrent.Executor scanExecutor) {
         this.platform = platform;
         this.events = new EventBus(platform::logError);
         this.client = new ClientSettings();
@@ -46,6 +53,7 @@ public final class NoirCore {
         this.commands = new CommandManager(this);
         this.config = new ConfigManager(this, platform.configDir());
         this.gui = new ClickGui(this);
+        this.baseHunt = new BaseHunt(this, scanExecutor);
         instance = this;
     }
 
@@ -79,6 +87,7 @@ public final class NoirCore {
 
     public void shutdown() {
         if (config.isDirty() || started) config.saveAll();
+        baseHunt.shutdown();
     }
 
     public Platform platform() { return platform; }
@@ -92,4 +101,5 @@ public final class NoirCore {
     public CommandManager commands() { return commands; }
     public ConfigManager config() { return config; }
     public ClickGui gui() { return gui; }
+    public BaseHunt baseHunt() { return baseHunt; }
 }

@@ -30,6 +30,11 @@ public interface HudData {
     /** Named hit counters published by modules (e.g. "SusChunk" -> 3). */
     Map<String, Integer> hitCounters();
 
+    /** Camera this frame (for projecting waypoint labels). */
+    default dev.noir.render.CameraInfo camera() {
+        return dev.noir.render.CameraInfo.NONE;
+    }
+
     record ArmorPiece(Object stack, String name, int damage, int maxDamage) {
         public boolean empty() {
             return stack == null;

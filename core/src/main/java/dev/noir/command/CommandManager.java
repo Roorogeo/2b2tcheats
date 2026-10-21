@@ -8,6 +8,7 @@ import dev.noir.command.commands.HelpCommand;
 import dev.noir.command.commands.HudCommand;
 import dev.noir.command.commands.SetCommand;
 import dev.noir.command.commands.ToggleCommand;
+import dev.noir.command.commands.WaypointCommand;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +36,7 @@ public final class CommandManager {
         register(new ConfigCommand());
         register(new FriendCommand());
         register(new HudCommand());
+        register(new WaypointCommand());
     }
 
     public void register(Command c) {

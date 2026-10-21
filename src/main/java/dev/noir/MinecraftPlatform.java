@@ -57,6 +57,12 @@ final class MinecraftPlatform implements Platform {
     }
 
     @Override
+    public String serverId() {
+        var server = mc.getCurrentServer();
+        return server != null ? server.ip : "singleplayer";
+    }
+
+    @Override
     public void openClickGui() {
         mc.execute(() -> mc.gui.setScreen(new NoirScreen(NoirClient.core())));
     }

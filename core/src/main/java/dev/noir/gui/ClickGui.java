@@ -140,6 +140,9 @@ public final class ClickGui {
         ui.dismissPopupOnOutsideClick();
         if (ui.focus() == null && !ui.isListening() && ui.hasTyped() && !closing) ui.setFocus(SEARCH);
 
+        // Footer hint first, so panels cover it when they reach the bottom.
+        String hint = "Click to toggle  ·  Right-click for settings  ·  Drag headers to move  ·  Esc to close";
+        c.text(hint, (w - c.textWidth(hint, FontRole.CAPTION)) / 2, h - 28, FontRole.CAPTION, t.subtle());
         Panel raise = null;
         String q = query();
         for (Panel p : panels) {
@@ -153,8 +156,6 @@ public final class ClickGui {
         float sx = (w - SEARCH_W) / 2, sy = 24;
         search = ui.textField(SEARCH, sx, sy, SEARCH_W, SEARCH_H, search, "Search modules and settings", 48);
         ui.layerBounds(sx - 2, sy - 2, SEARCH_W + 4, SEARCH_H + 4);
-        String hint = "Click to toggle  ·  Right-click for settings  ·  Drag headers to move  ·  Esc to close";
-        c.text(hint, (w - c.textWidth(hint, FontRole.CAPTION)) / 2, h - 28, FontRole.CAPTION, t.subtle());
 
         ui.drawPopup();
         ui.drawTooltip();

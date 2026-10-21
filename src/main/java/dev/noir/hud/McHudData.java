@@ -2,6 +2,7 @@ package dev.noir.hud;
 
 import dev.noir.NoirCore;
 import dev.noir.network.TpsTracker;
+import dev.noir.render.CameraInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
@@ -10,6 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,6 +86,18 @@ public final class McHudData implements HudData {
             if (s.is(Items.TOTEM_OF_UNDYING)) n += s.getCount();
         }
         return n;
+    }
+
+    @Override
+    public CameraInfo camera() {
+        return camera(mc.gameRenderer.mainCamera().position());
+    }
+
+    /** Camera at {@code pos} with the main camera's rotation and the FOV option. */
+    public CameraInfo camera(Vec3 pos) {
+        var cam = mc.gameRenderer.mainCamera();
+        return new CameraInfo(pos.x, pos.y, pos.z, cam.yRot(), cam.xRot(), mc.options.fov().get(),
+            mc.getWindow().getWidth(), mc.getWindow().getHeight());
     }
 
     @Override

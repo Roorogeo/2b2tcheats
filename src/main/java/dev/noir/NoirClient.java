@@ -1,5 +1,7 @@
 package dev.noir;
 
+import dev.noir.basehunt.McChunkSource;
+import dev.noir.basehunt.McChunkView;
 import dev.noir.event.Events;
 import dev.noir.event.RenderWorldEvent;
 import dev.noir.gui.McCanvas;
@@ -10,6 +12,8 @@ import dev.noir.module.settings.BlockListSetting;
 import dev.noir.module.settings.EntityListSetting;
 import dev.noir.network.MinecraftPacketSink;
 import dev.noir.network.TpsTracker;
+import dev.noir.render.CameraInfo;
+import dev.noir.render.McWorldCanvas;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -31,6 +35,7 @@ public final class NoirClient implements ClientModInitializer {
     private static NoirCore core;
     private static McHudData hudData;
     private static final TpsTracker TPS = new TpsTracker();
+    private static McChunkSource chunks;
     private static long tick;
     private static volatile boolean rotationResyncPending;
 
@@ -68,15 +73,22 @@ public final class NoirClient implements ClientModInitializer {
         core.register(Modules.create());
         core.packets().setSink(new MinecraftPacketSink(mc, core));
         hudData = new McHudData(mc, core, TPS);
+        chunks = new McChunkSource(mc);
+        core.baseHunt().setSource(chunks);
         core.start();
 
         ClientTickEvents.START_CLIENT_TICK.register(NoirClient::onTickStart);
         ClientTickEvents.END_CLIENT_TICK.register(NoirClient::onTickEnd);
 
-        ClientChunkEvents.CHUNK_LOAD.register((level, chunk) ->
-            core.events().post(new Events.ChunkLoad(chunk.getPos().x(), chunk.getPos().z(), chunk)));
-        ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) ->
-            core.events().post(new Events.ChunkUnload(chunk.getPos().x(), chunk.getPos().z(), chunk)));
+        ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
+            McChunkView view = new McChunkView(level, chunk);
+            chunks.onLoad(view);
+            core.events().post(new Events.ChunkLoad(view.chunkX(), view.chunkZ(), chunk, view));
+        });
+        ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> {
+            chunks.onUnload(chunk.getPos().x(), chunk.getPos().z());
+            core.events().post(new Events.ChunkUnload(chunk.getPos().x(), chunk.getPos().z(), chunk));
+        });
 
         // Commands are handled locally and never reach the server.
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> !core.commands().handle(message));
@@ -88,6 +100,7 @@ public final class NoirClient implements ClientModInitializer {
         });
         ClientPlayConnectionEvents.DISCONNECT.register((listener, client) -> {
             core.packets().rotations().reset();
+            chunks.clear();
             core.events().post(new Events.WorldChange(false));
             core.config().saveAll();
         });
@@ -97,13 +110,21 @@ public final class NoirClient implements ClientModInitializer {
             McCanvas canvas = McCanvas.begin(graphics, core);
             try {
                 core.hud().render(canvas, hudData);
-                core.events().post(new Events.RenderHud(canvas, deltaTracker.getGameTimeDeltaPartialTick(false)));
+                core.events().post(new Events.RenderHud(canvas, deltaTracker.getGameTimeDeltaPartialTick(false), hudData.camera()));
             } finally {
                 canvas.end();
             }
         });
 
         LevelRenderEvents.END_MAIN.register(context -> core.events().post(new RenderWorldEvent(context)));
+        // 3D shapes from modules, submitted as translucent quads (same hook Fabric's 26.2 render tests use).
+        LevelRenderEvents.BEFORE_TRANSLUCENT_TERRAIN.register(context -> {
+            if (!inWorld(mc)) return;
+            CameraInfo cam = hudData.camera(McWorldCanvas.cameraPos(context));
+            McWorldCanvas canvas = new McWorldCanvas(cam);
+            core.events().post(new Events.RenderWorld3D(canvas, mc.getDeltaTracker().getGameTimeDeltaPartialTick(true)));
+            canvas.submit(context);
+        });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> core.shutdown());
     }

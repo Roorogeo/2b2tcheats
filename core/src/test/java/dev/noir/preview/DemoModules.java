@@ -8,9 +8,9 @@ import dev.noir.module.settings.EnumSetting;
 import java.util.List;
 
 /**
- * Stand-in modules for GUI previews and GUI tests. They declare settings shaped like the
- * planned modules but have no behaviour; the real modules (stage 2/3) live in the
- * Minecraft layer because they read game state.
+ * Modules for GUI previews and GUI tests. Base Hunting entries are the real modules; the
+ * Combat/Movement/Render entries are stand-ins until stage 3 (they declare settings but have
+ * no behaviour).
  */
 public final class DemoModules {
     private DemoModules() {}
@@ -116,12 +116,10 @@ public final class DemoModules {
             new Simple("StorageESP", Category.RENDER, "Highlights containers.", null),
             new Simple("NoRender", Category.RENDER, "Hides fog, overlays and particles.", null),
             new Simple("Freecam", Category.RENDER, "Detached camera.", null),
-            new Simple("SusChunk", Category.BASE_HUNTING, "Scores chunks for player activity.", "3 hits"),
-            new Simple("NewChunks", Category.BASE_HUNTING, "Marks new and old chunks.", null),
-            new Simple("Trails", Category.BASE_HUNTING, "Finds old-chunk trails.", null),
-            new Simple("Search", Category.BASE_HUNTING, "Block ESP for a custom list.", "12"),
-            new Simple("PortalESP", Category.BASE_HUNTING, "Highlights portals.", null),
-            new Simple("StashFinder", Category.BASE_HUNTING, "Finds chunks full of storage.", null),
-            new Simple("Waypoints", Category.BASE_HUNTING, "Waypoints for finds.", null));
+            // Base Hunting: the real modules.
+            new dev.noir.module.basehunting.SusChunk(), new dev.noir.module.basehunting.NewChunks(),
+            new dev.noir.module.basehunting.Trails(), new dev.noir.module.basehunting.Search(),
+            new dev.noir.module.basehunting.PortalESP(), new dev.noir.module.basehunting.StashFinder(),
+            new dev.noir.module.basehunting.Waypoints());
     }
 }

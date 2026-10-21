@@ -97,6 +97,23 @@ public abstract class SettingsHolder {
         return add(new EntityListSetting(n, idMap(entryColor, ids), entryColor, desc));
     }
 
+    /**
+     * Adds a "Render" group with the standard fill / outline / tracer options.
+     * {@code tracersByDefault} decides whether tracers start enabled.
+     */
+    protected final dev.noir.render.RenderOptions renderOptions(String groupName, boolean tracersByDefault) {
+        group(groupName, "How finds are drawn.");
+        BoolSetting fill = bool("Fill", true, "Draw translucent filled boxes.");
+        NumberSetting fillOpacity = number("Fill Opacity", 0.25, 0, 1, 0.05, "Opacity of the fill, relative to the color's alpha.").showWhen(fill);
+        BoolSetting outline = bool("Outline", true, "Draw box outlines.");
+        NumberSetting lineWidth = number("Line Width", 1.5, 0.5, 6, 0.5, "Outline width in pixels.").unit("px").showWhen(outline);
+        BoolSetting tracers = bool("Tracers", tracersByDefault, "Draw a line from the crosshair to each find.");
+        NumberSetting tracerWidth = number("Tracer Width", 1, 0.5, 6, 0.5, "Tracer width in pixels.").unit("px").showWhen(tracers);
+        EnumSetting<dev.noir.render.Shapes.TracerOrigin> origin = mode("Tracer Origin", dev.noir.render.Shapes.TracerOrigin.CROSSHAIR,
+            "Where tracers start.").showWhen(tracers);
+        return new dev.noir.render.RenderOptions(fill, fillOpacity, outline, lineWidth, tracers, tracerWidth, origin);
+    }
+
     private static Map<String, Integer> idMap(int color, String... ids) {
         Map<String, Integer> m = new LinkedHashMap<>();
         Arrays.stream(ids).map(IdListSetting::normalizeId).forEach(id -> m.put(id, color));

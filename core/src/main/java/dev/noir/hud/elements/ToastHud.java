@@ -24,7 +24,7 @@ public final class ToastHud extends HudElement {
     private static final float H = 44;
     private static final float GAP = 8;
 
-    private record Toast(String title, boolean on, long start, Animation anim) {}
+    private record Toast(String title, String body, boolean on, long start, Animation anim) {}
 
     private final Deque<Toast> toasts = new ArrayDeque<>();
 
@@ -33,11 +33,16 @@ public final class ToastHud extends HudElement {
     }
 
     public void onToggle(Module m, boolean on) {
+        push(m.name(), on ? "Enabled" : "Disabled", on);
+    }
+
+    /** Shows a toast. {@code filled} draws the white dot (on) instead of the outlined one. */
+    public void push(String title, String body, boolean filled) {
         if (core == null || !enabled.get()) return;
         Animation a = new Animation(core.platform().clock(), 140, core.client().animationSpeed::getDouble, 0);
         a.target(1);
-        toasts.removeIf(t -> t.title.equals(m.name()));
-        toasts.addFirst(new Toast(m.name(), on, core.platform().clock().millis(), a));
+        toasts.removeIf(t -> t.title.equals(title) && t.body.equals(body));
+        toasts.addFirst(new Toast(title, body, filled, core.platform().clock().millis(), a));
         while (toasts.size() > maxToasts.getInt()) toasts.removeLast();
     }
 
@@ -85,7 +90,8 @@ public final class ToastHud extends HudElement {
             }
             float textX = dx + dot + t.padC() + 4;
             c.text(c.ellipsize(toast.title, FontRole.BODY, W - (textX - tx) - t.padC()), textX, cy + 6, FontRole.BODY, t.ink());
-            c.text(toast.on ? "Enabled" : "Disabled", textX, cy + 6 + lh(c, FontRole.BODY), FontRole.CAPTION, t.muted());
+            c.text(c.ellipsize(toast.body, FontRole.CAPTION, W - (textX - tx) - t.padC()), textX, cy + 6 + lh(c, FontRole.BODY),
+                FontRole.CAPTION, t.muted());
             c.popAlpha();
             float step = (H + GAP) * v;
             cy += bottom ? -step : step;
